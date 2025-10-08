@@ -1,0 +1,22 @@
+{
+  "name": "smartcart",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "dev": "pnpm -r dev",
+    "build": "pnpm -r build",
+    "start": "pnpm -r start",
+    "db:up": "docker compose -f infra/docker/docker-compose.yml up -d",
+    "db:down": "docker compose -f infra/docker/docker-compose.yml down -v",
+    "prisma:generate": "pnpm --filter @smartcart/api prisma:generate",
+    "prisma:migrate": "pnpm --filter @smartcart/api prisma:migrate",
+    "seed": "pnpm --filter @smartcart/api seed"
+  },
+  "devDependencies": {
+    "prisma": "5.22.0",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "@prisma/client": "5.22.0"
+  }
+}
