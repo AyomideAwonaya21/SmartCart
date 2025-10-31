@@ -40,4 +40,14 @@ export const typeDefs = gql/* GraphQL */`
     removeCartItem(sessionId: ID!, itemId: ID!): Cart
     clearCart(sessionId: ID!): Cart
   }
+
+
+    type CheckoutSession {
+    url: String!
+  }
+
+  extend type Mutation {
+    checkout(sessionId: ID!): CheckoutSession!
+  }
+
 `;

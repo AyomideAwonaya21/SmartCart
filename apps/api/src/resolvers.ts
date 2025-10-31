@@ -1,5 +1,8 @@
 import { PrismaClient } from "@prisma/client";
+import Stripe from "stripe";
+
 const prisma = new PrismaClient();
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, { apiVersion: "2024-06-20" });
 
 function asCart(cart: any) {
   const items = cart.items.map((it: any) => ({
@@ -27,6 +30,7 @@ export const resolvers = {
       return asCart(cart);
     }
   },
+
   Mutation: {
     addToCart: async (_: any, { sessionId, productId, sku, qty }: any) => {
       if (qty <= 0) qty = 1;
@@ -39,9 +43,7 @@ export const resolvers = {
         update: {},
       });
 
-      const existing = await prisma.cartItem.findFirst({
-        where: { cartId: cart.id, productId, sku }
-      });
+      const existing = await prisma.cartItem.findFirst({ where: { cartId: cart.id, productId, sku } });
 
       if (existing) {
         await prisma.cartItem.update({
@@ -50,13 +52,7 @@ export const resolvers = {
         });
       } else {
         await prisma.cartItem.create({
-          data: {
-            cartId: cart.id,
-            productId,
-            sku,
-            quantity: qty,
-            unitPrice: product.priceCents
-          }
+          data: { cartId: cart.id, productId, sku, quantity: qty, unitPrice: product.priceCents }
         });
       }
 
@@ -102,6 +98,38 @@ export const resolvers = {
         include: { items: { include: { product: true } } }
       });
       return asCart(fresh);
-    }
-  }
+    },
+
+    // NEW: create Stripe Checkout Session and return URL
+    checkout: async (_: any, { sessionId }: { sessionId: string }) => {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
+      const cart = await prisma.cart.findUnique({
+        where: { sessionId },
+        include: { items: { include: { product: true } } },
+      });
+      if (!cart || cart.items.length === 0) {
+        throw new Error("Cart is empty");
+      }
+      const currency = cart.items[0].product.currency || "USD";
+
+      const line_items = cart.items.map((it) => ({
+        quantity: it.quantity,
+        price_data: {
+          currency,
+          product_data: { name: it.product.title },
+          unit_amount: it.unitPrice, // in cents
+        },
+      }));
+
+      const session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        line_items,
+        success_url: `${appUrl}/checkout/success?sid=${encodeURIComponent(sessionId)}`,
+        cancel_url: `${appUrl}/cart`,
+        metadata: { sessionId },
+      });
+
+      return { url: session.url as string };
+    },
+  },
 };
